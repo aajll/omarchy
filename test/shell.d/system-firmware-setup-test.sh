@@ -11,9 +11,9 @@ mock_bin="$test_tmp/bin"
 call_log="$test_tmp/calls.log"
 mkdir -p "$mock_bin"
 
-# CAN_ANSWER is what logind returns for CanRebootToFirmwareSetup, and
+# CAN_ANSWER is what logind returns for CanRebootToFirmwareSetup,
 # FAIL_SET_TRUE makes it refuse SetRebootToFirmwareSetup the way firmware
-# without support does.
+# without support does, and FAIL_SET_FALSE makes clearing the flag fail.
 cat >"$mock_bin/busctl" <<'SH'
 #!/bin/bash
 
@@ -27,6 +27,9 @@ CanRebootToFirmwareSetup)
 SetRebootToFirmwareSetup)
   if [[ $7 == "true" && ${FAIL_SET_TRUE:-false} == "true" ]]; then
     echo "Call failed: Firmware does not support boot into firmware." >&2
+    exit 1
+  fi
+  if [[ $7 == "false" && ${FAIL_SET_FALSE:-false} == "true" ]]; then
     exit 1
   fi
   ;;
@@ -96,9 +99,16 @@ pass "firmware setup refusal leaves the session untouched and says why"
 if FAIL_REBOOT=true run_firmware_setup; then
   fail "firmware setup reboot fails when the reboot cannot be scheduled"
 fi
-diff -u - "$call_log" <<EOF || fail "firmware setup is withdrawn when the reboot cannot be scheduled"
+diff -u - "$call_log" <<EOF || fail "firmware setup is withdrawn and reported when the reboot cannot be scheduled"
 busctl call $login1 SetRebootToFirmwareSetup b true
 omarchy-system-reboot
 busctl call $login1 SetRebootToFirmwareSetup b false
+omarchy-notification-send -u critical Couldn't reboot into firmware setup The reboot couldn't be scheduled.
 EOF
-pass "firmware setup is withdrawn when the reboot cannot be scheduled"
+pass "firmware setup is withdrawn and reported when the reboot cannot be scheduled"
+
+if FAIL_REBOOT=true FAIL_SET_FALSE=true run_firmware_setup; then
+  fail "firmware setup reboot fails when neither the reboot nor the withdrawal succeeds"
+fi
+grep -q '^omarchy-notification-send -u critical .*next reboot will open firmware setup' "$call_log" || fail "firmware setup warns that the flag is still set" "$(cat "$call_log")"
+pass "firmware setup warns when the flag cannot be withdrawn"

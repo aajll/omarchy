@@ -14,6 +14,12 @@ if ! error=$(request_firmware_setup true 2>&1); then
   omarchy-notification-send -u critical "Couldn't reboot into firmware setup" "$error"
   exit 1
 elif ! omarchy-system-reboot; then
-  request_firmware_setup false
+  if request_firmware_setup false; then
+    message="The reboot couldn't be scheduled."
+  else
+    message="The reboot couldn't be scheduled, and the next reboot will open firmware setup."
+  fi
+
+  omarchy-notification-send -u critical "Couldn't reboot into firmware setup" "$message"
   exit 1
 fi
