@@ -18,6 +18,7 @@ cat >"$mock_bin/busctl" <<'SH'
 #!/bin/bash
 
 printf 'busctl %s\n' "$*" >>"$CALL_LOG"
+[[ $1 == --* ]] && shift
 
 case $5 in
 CanRebootToFirmwareSetup)
@@ -82,7 +83,7 @@ run_firmware_setup() {
 
 run_firmware_setup || fail "firmware setup reboot succeeds"
 diff -u - "$call_log" <<EOF || fail "firmware setup is requested before the reboot closes any window"
-busctl call $login1 SetRebootToFirmwareSetup b true
+busctl --allow-interactive-authorization=yes call $login1 SetRebootToFirmwareSetup b true
 omarchy-system-reboot
 EOF
 pass "firmware setup is requested before the reboot closes any window"
@@ -100,9 +101,9 @@ if FAIL_REBOOT=true run_firmware_setup; then
   fail "firmware setup reboot fails when the reboot cannot be scheduled"
 fi
 diff -u - "$call_log" <<EOF || fail "firmware setup is withdrawn and reported when the reboot cannot be scheduled"
-busctl call $login1 SetRebootToFirmwareSetup b true
+busctl --allow-interactive-authorization=yes call $login1 SetRebootToFirmwareSetup b true
 omarchy-system-reboot
-busctl call $login1 SetRebootToFirmwareSetup b false
+busctl --allow-interactive-authorization=yes call $login1 SetRebootToFirmwareSetup b false
 omarchy-notification-send -u critical Couldn't reboot into firmware setup The reboot couldn't be scheduled.
 EOF
 pass "firmware setup is withdrawn and reported when the reboot cannot be scheduled"
