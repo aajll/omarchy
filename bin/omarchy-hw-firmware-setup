@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# omarchy:summary=Returns true when the firmware can reboot into its setup screen.
+
+# logind answers from the UEFI OsIndicationsSupported variable, and says
+# "challenge" when polkit will ask for a password before allowing it. The
+# menu waits on every guard together, so a stalled logind must not hold it up.
+answer=$(busctl --timeout=2 call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager CanRebootToFirmwareSetup 2>/dev/null)
+
+[[ $answer == 's "yes"' || $answer == 's "challenge"' ]]
